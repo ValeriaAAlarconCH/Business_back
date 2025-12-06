@@ -17,4 +17,5 @@ public interface IEvaluacionDiabetesService {
     List<EvaluacionDiabetesDto> obtenerEvaluacionesPorTipo(String tipo);
     PrediccionResponseDto realizarPrediccion(EvaluacionRequestDto request);
     Map<String, Long> obtenerEstadisticas();
+    Map<String, Object> obtenerEstadisticasCompletas();
 }

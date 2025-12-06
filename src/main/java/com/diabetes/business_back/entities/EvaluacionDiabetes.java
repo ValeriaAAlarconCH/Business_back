@@ -19,7 +19,6 @@ public class EvaluacionDiabetes {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_evaluacion")
     private Long idEvaluacion;
-
     @ManyToOne
     @JoinColumn(name = "id_paciente")
     private Paciente paciente;
@@ -30,7 +29,6 @@ public class EvaluacionDiabetes {
     private String explicacion;
     private String recomendaciones;
 
-    // Variables categóricas
     private String marcadoresGeneticos;
     private String autoanticuerpos;
     private String antecedentesFamiliares;
@@ -52,7 +50,6 @@ public class EvaluacionDiabetes {
     private String actividadFisica;
     private String pruebaOrina;
 
-    // Variables numéricas
     private Double nivelesInsulina;
     private Integer edad;
     private Double indiceMasaCorporal;
@@ -67,7 +64,6 @@ public class EvaluacionDiabetes {
     private Double nivelesEnzimasDigestivas;
     private Double pesoNacimiento;
 
-    // Clasificaciones interpretadas
     private String clasificacionPresion;
     private String clasificacionColesterol;
     private String clasificacionInsulina;

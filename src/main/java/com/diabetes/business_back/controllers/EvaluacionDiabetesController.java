@@ -68,4 +68,9 @@ public class EvaluacionDiabetesController {
     public ResponseEntity<Map<String, Long>> obtenerEstadisticas() {
         return ResponseEntity.ok(evaluacionservice.obtenerEstadisticas());
     }
+
+    @GetMapping("/estadisticas-completas")
+    public ResponseEntity<Map<String, Object>> obtenerEstadisticasCompletas() {
+        return ResponseEntity.ok(evaluacionservice.obtenerEstadisticasCompletas());
+    }
 }

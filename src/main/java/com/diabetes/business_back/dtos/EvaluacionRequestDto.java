@@ -14,7 +14,6 @@ import java.io.Serializable;
 public class EvaluacionRequestDto implements Serializable {
     private PacienteDto pacientedto;
 
-    // Variables categóricas para predicción
     private String marcadoresGeneticos;
     private String autoanticuerpos;
     private String antecedentesFamiliares;
@@ -36,7 +35,6 @@ public class EvaluacionRequestDto implements Serializable {
     private String actividadFisica;
     private String pruebaOrina;
 
-    // Variables numéricas para predicción
     private Double nivelesInsulina;
     private Integer edad;
     private Double indiceMasaCorporal;

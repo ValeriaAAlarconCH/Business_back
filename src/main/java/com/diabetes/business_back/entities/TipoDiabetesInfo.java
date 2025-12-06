@@ -17,26 +17,18 @@ public class TipoDiabetesInfo {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_tipo_diabetes")
     private Long idTipoDiabetes;
-
     @Column(unique = true)
     private String nombreEn;
-
     private String nombreEs;
-
     @Column(length = 2000)
     private String descripcion;
-
     @Column(length = 1000)
     private String causas;
-
     @Column(length = 1000)
     private String sintomas;
-
     @Column(length = 1000)
     private String tratamiento;
-
     @Column(length = 1000)
     private String recomendaciones;
-
     private Boolean esComun;
 }
