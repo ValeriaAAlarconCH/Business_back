@@ -21,7 +21,6 @@ public class EvaluacionDiabetesDto implements Serializable {
     private String explicacion;
     private String recomendaciones;
 
-    // Variables categóricas
     private String marcadoresGeneticos;
     private String autoanticuerpos;
     private String antecedentesFamiliares;
@@ -43,7 +42,6 @@ public class EvaluacionDiabetesDto implements Serializable {
     private String actividadFisica;
     private String pruebaOrina;
 
-    // Variables numéricas
     private Double nivelesInsulina;
     private Integer edad;
     private Double indiceMasaCorporal;
@@ -58,7 +56,6 @@ public class EvaluacionDiabetesDto implements Serializable {
     private Double nivelesEnzimasDigestivas;
     private Double pesoNacimiento;
 
-    // Clasificaciones
     private String clasificacionPresion;
     private String clasificacionColesterol;
     private String clasificacionInsulina;

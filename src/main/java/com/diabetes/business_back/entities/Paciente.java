@@ -20,7 +20,6 @@ public class Paciente {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_paciente")
     private Long idPaciente;
-
     private String codigoPaciente;
     private String nombre;
     private LocalDate fechaNacimiento;
@@ -28,7 +27,6 @@ public class Paciente {
     private String telefono;
     private String email;
     private String direccion;
-
     @OneToMany(mappedBy = "paciente", cascade = CascadeType.ALL)
     private List<EvaluacionDiabetes> evaluaciones;
 }
