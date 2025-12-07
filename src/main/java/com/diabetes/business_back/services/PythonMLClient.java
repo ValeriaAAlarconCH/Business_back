@@ -6,9 +6,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.HttpServerErrorException;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
@@ -20,9 +17,6 @@ public class PythonMLClient {
 
     @Value("${ml.python.api.url:http://localhost:5000}")
     private String pythonApiUrl;
-
-    @Value("${ml.python.api.timeout:5000}")
-    private int timeout;
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -39,101 +33,66 @@ public class PythonMLClient {
 
             ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
 
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+            if (response.getStatusCode() == HttpStatus.OK) {
                 Map<String, Object> body = response.getBody();
-                Boolean modelLoaded = (Boolean) body.get("model_loaded");
-
-                if (modelLoaded != null && modelLoaded) {
-                    log.info("✅ API Python conectada. Modelo cargado correctamente");
-                    log.info("📊 Número de features: {}", body.get("num_features"));
-                    log.info("🎯 Clases disponibles: {}", body.get("classes"));
-                    return true;
-                } else {
-                    log.warn("⚠️ API Python conectada pero modelo NO cargado");
-                    return false;
+                if (body != null) {
+                    Object modelLoaded = body.get("model_loaded");
+                    log.info("✅ API Python disponible: {}", modelLoaded);
+                    return Boolean.TRUE.equals(modelLoaded);
                 }
             }
-        } catch (ResourceAccessException e) {
-            log.error("❌ No se puede conectar a API Python en {}", pythonApiUrl);
-            log.error("   Verifica que: 1) La API esté ejecutándose, 2) Puerto 5000 libre");
+            return false;
         } catch (Exception e) {
-            log.error("❌ Error verificando conexión Python: {}", e.getMessage());
+            log.error("❌ No se puede conectar a API Python: {}", e.getMessage());
+            return false;
         }
-        return false;
     }
 
     public MLPredictionResponseDto predecirConPython(Map<String, Object> features) {
         try {
             String url = pythonApiUrl + "/predict";
-            log.info("📡 Llamando a API Python para predicción: {}", url);
-
-            log.debug("📤 Enviando {} características al modelo:", features.size());
-            features.forEach((key, value) ->
-                    log.debug("   - {}: {}", key, value));
+            log.info("📡 Enviando predicción a API Python con {} features", features.size());
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(features, headers);
 
-            ResponseEntity<Map> response = restTemplate.exchange(
+            ResponseEntity<MLPredictionResponseDto> response = restTemplate.exchange(
                     url,
                     HttpMethod.POST,
                     entity,
-                    Map.class
+                    MLPredictionResponseDto.class
             );
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                Map<String, Object> responseBody = response.getBody();
-
-                Boolean success = (Boolean) responseBody.get("success");
-                if (success == null || !success) {
-                    String errorMsg = (String) responseBody.get("error");
-                    log.error("❌ API Python reportó error: {}", errorMsg);
-                    throw new RuntimeException("Error en API Python: " + errorMsg);
-                }
-
-                MLPredictionResponseDto dto = convertirRespuestaADto(responseBody);
-
-                log.info("✅ Predicción exitosa: {} ({}%)",
-                        dto.getPredictedClass(),
-                        String.format("%.1f", dto.getProbability() * 100));
-
-                return dto;
-
+                MLPredictionResponseDto result = response.getBody();
+                log.info("✅ Predicción recibida: {} ({:.1f}%)",
+                        result.getPredictedClass(),
+                        result.getProbability() * 100);
+                return result;
             } else {
-                throw new RuntimeException("Respuesta HTTP no exitosa: " + response.getStatusCode());
+                throw new RuntimeException("Respuesta no válida de la API Python");
             }
-
-        } catch (ResourceAccessException e) {
-            log.error("❌ No se puede conectar a API Python. ¿Está ejecutándose?");
-            throw new RuntimeException("API Python no disponible. Error: " + e.getMessage());
-
-        } catch (HttpClientErrorException | HttpServerErrorException e) {
-            log.error("❌ Error HTTP {} de API Python: {}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw new RuntimeException("Error en API Python: " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
-
         } catch (Exception e) {
-            log.error("❌ Error inesperado llamando a API Python: {}", e.getMessage());
-            throw new RuntimeException("Error llamando a API Python: " + e.getMessage());
+            log.error("❌ Error llamando a API Python: {}", e.getMessage());
+            throw new RuntimeException("Error al comunicarse con el servicio de ML: " + e.getMessage());
         }
     }
 
     public MLPredictionResponseDto pruebaPrediccion() {
         try {
-            Map<String, Object> datosPrueba = new HashMap<>();
-            datosPrueba.put("edad", 45);
-            datosPrueba.put("niveles_glucosa", 180.0);
-            datosPrueba.put("niveles_insulina", 35.0);
-            datosPrueba.put("indice_masa_corporal", 28.5);
-            datosPrueba.put("autoanticuerpos", "Negative");
-            datosPrueba.put("antecedentes_familiares", "Yes");
-            datosPrueba.put("presion_arterial", 130.0);
-            datosPrueba.put("niveles_colesterol", 220.0);
+            Map<String, Object> testData = new HashMap<>();
+            testData.put("edad", 45);
+            testData.put("niveles_glucosa", 180.0);
+            testData.put("niveles_insulina", 35.0);
+            testData.put("indice_masa_corporal", 28.5);
+            testData.put("autoanticuerpos", "Negative");
+            testData.put("antecedentes_familiares", "Yes");
+            testData.put("presion_arterial", 130.0);
+            testData.put("niveles_colesterol", 220.0);
 
-            log.info("🧪 Realizando prueba de predicción con datos de ejemplo...");
-            return predecirConPython(datosPrueba);
-
+            return predecirConPython(testData);
         } catch (Exception e) {
             log.error("❌ Error en prueba de predicción: {}", e.getMessage());
             return null;
@@ -146,66 +105,17 @@ public class PythonMLClient {
             ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
 
             if (response.getStatusCode() == HttpStatus.OK) {
-                return response.getBody();
+                Map<String, Object> body = response.getBody();
+                if (body != null) {
+                    log.info("📊 Información del modelo obtenida: {} features",
+                            body.get("num_features"));
+                }
+                return body;
             }
+            return new HashMap<>();
         } catch (Exception e) {
-            log.error("Error obteniendo info del modelo: {}", e.getMessage());
+            log.error("❌ Error obteniendo info del modelo: {}", e.getMessage());
+            return new HashMap<>();
         }
-        return new HashMap<>();
-    }
-
-    private MLPredictionResponseDto convertirRespuestaADto(Map<String, Object> responseBody) {
-        MLPredictionResponseDto dto = new MLPredictionResponseDto();
-
-        try {
-            dto.setPredictedClass((String) responseBody.get("predictedClass"));
-
-            dto.setProbability(convertirADouble(responseBody.get("probability")));
-
-            if (responseBody.get("probabilities") instanceof Map) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> probsMap = (Map<String, Object>) responseBody.get("probabilities");
-                Map<String, Double> probabilidades = new HashMap<>();
-
-                probsMap.forEach((clase, prob) -> {
-                    probabilidades.put(clase, convertirADouble(prob));
-                });
-                dto.setProbabilities(probabilidades);
-            }
-
-            if (responseBody.get("featureImportance") instanceof Map) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> importanceMap = (Map<String, Object>) responseBody.get("featureImportance");
-                Map<String, Double> importancia = new HashMap<>();
-
-                importanceMap.forEach((feature, importanceVal) -> {
-                    importancia.put(feature, convertirADouble(importanceVal));
-                });
-                dto.setFeatureImportance(importancia);
-            }
-
-        } catch (Exception e) {
-            log.error("Error convirtiendo respuesta Python a DTO: {}", e.getMessage());
-            throw new RuntimeException("Error procesando respuesta de API Python");
-        }
-
-        return dto;
-    }
-
-    private Double convertirADouble(Object value) {
-        if (value == null) return 0.0;
-
-        if (value instanceof Number) {
-            return ((Number) value).doubleValue();
-        } else if (value instanceof String) {
-            try {
-                return Double.parseDouble((String) value);
-            } catch (NumberFormatException e) {
-                return 0.0;
-            }
-        } else if (value instanceof Boolean) {
-            return ((Boolean) value) ? 1.0 : 0.0;
-        }
-        return 0.0;
     }
 }
