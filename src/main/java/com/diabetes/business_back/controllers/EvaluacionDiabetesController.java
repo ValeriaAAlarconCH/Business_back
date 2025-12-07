@@ -17,7 +17,7 @@ import java.util.Map;
 @CrossOrigin(origins = "http://localhost:4200",
         allowCredentials = "true",
         exposedHeaders = "Authorization")
-@RequestMapping("/evaluaciones")
+@RequestMapping("/api/evaluaciones")
 public class EvaluacionDiabetesController {
     @Autowired
     private IEvaluacionDiabetesService evaluacionservice;

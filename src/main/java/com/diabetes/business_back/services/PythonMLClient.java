@@ -184,14 +184,15 @@ public class PythonMLClient {
 
     public MLPredictionResponseDto pruebaPrediccion() {
         try {
-            // Usar el endpoint /test de tu API Flask que ya tiene datos de ejemplo
+            log.info("🧪 Realizando prueba de predicción...");
+
+            // Usar el endpoint /test de tu API Flask
             String url = pythonApiUrl + "/test";
-            log.info("🧪 Realizando prueba de predicción con endpoint: {}", url);
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
-            // Enviar solicitud POST vacía para usar datos de prueba del servidor
+            // Enviar POST vacío (la API Flask maneja datos de ejemplo internamente)
             HttpEntity<String> entity = new HttpEntity<>("{}", headers);
 
             ResponseEntity<Map> response = restTemplate.exchange(
@@ -202,15 +203,14 @@ public class PythonMLClient {
             );
 
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                MLPredictionResponseDto result = convertirRespuestaADto(response.getBody());
-                log.info("✅ Prueba de predicción exitosa");
-                return result;
+                return convertirRespuestaADto(response.getBody());
             }
 
+            log.error("❌ Prueba de predicción falló: respuesta vacía");
             return null;
 
         } catch (Exception e) {
-            log.error("❌ Error en prueba de predicción: {}", e.getMessage());
+            log.error("❌ Error en prueba de predicción: {}", e.getMessage(), e);
             return null;
         }
     }

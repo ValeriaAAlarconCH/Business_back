@@ -14,7 +14,7 @@ import java.util.List;
 @CrossOrigin(origins = "http://localhost:4200",
         allowCredentials = "true",
         exposedHeaders = "Authorization")
-@RequestMapping("/pacientes")
+@RequestMapping("/api/pacientes")
 public class PacienteController {
     @Autowired
     private IPacienteService pacienteservice;
