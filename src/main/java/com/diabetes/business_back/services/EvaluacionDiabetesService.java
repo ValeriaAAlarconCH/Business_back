@@ -679,7 +679,6 @@ public class EvaluacionDiabetesService implements IEvaluacionDiabetesService {
     private void validarDatosCompletos(EvaluacionRequestDto request) {
         List<String> errores = new ArrayList<>();
 
-        // Validar campos obligatorios
         if (request.getEdad() == null || request.getEdad() < 0 || request.getEdad() > 120) {
             errores.add("Edad inválida. Debe estar entre 0 y 120 años");
         }
@@ -690,27 +689,6 @@ public class EvaluacionDiabetesService implements IEvaluacionDiabetesService {
 
         if (request.getNivelesInsulina() == null || request.getNivelesInsulina() < 0 || request.getNivelesInsulina() > 500) {
             errores.add("Niveles de insulina inválidos. Rango: 0-500 μU/mL");
-        }
-
-        if (request.getIndiceMasaCorporal() == null || request.getIndiceMasaCorporal() < 10 || request.getIndiceMasaCorporal() > 60) {
-            errores.add("Índice de masa corporal inválido. Rango: 10-60 kg/m²");
-        }
-
-        if (request.getPresionArterial() == null || request.getPresionArterial() < 60 || request.getPresionArterial() > 250) {
-            errores.add("Presión arterial inválida. Rango: 60-250 mmHg");
-        }
-
-        // Validar campos categóricos básicos
-        if (request.getAutoanticuerpos() == null || request.getAutoanticuerpos().trim().isEmpty()) {
-            errores.add("Campo 'autoanticuerpos' es requerido");
-        }
-
-        if (request.getAntecedentesFamiliares() == null || request.getAntecedentesFamiliares().trim().isEmpty()) {
-            errores.add("Campo 'antecedentesFamiliares' es requerido");
-        }
-
-        if (request.getMarcadoresGeneticos() == null || request.getMarcadoresGeneticos().trim().isEmpty()) {
-            errores.add("Campo 'marcadoresGeneticos' es requerido");
         }
 
         if (!errores.isEmpty()) {

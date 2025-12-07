@@ -14,7 +14,7 @@ import java.util.List;
 @CrossOrigin(origins = "http://localhost:4200",
         allowCredentials = "true",
         exposedHeaders = "Authorization")
-@RequestMapping("/tipos-diabetes")
+@RequestMapping("/api/tipos-diabetes")
 public class TipoDiabetesInfoController {
     @Autowired
     private ITipoDiabetesInfoService tipodiabetesservice;

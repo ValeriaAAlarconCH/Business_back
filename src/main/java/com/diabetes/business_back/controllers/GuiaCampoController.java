@@ -14,7 +14,7 @@ import java.util.List;
 @CrossOrigin(origins = "http://localhost:4200",
         allowCredentials = "true",
         exposedHeaders = "Authorization")
-@RequestMapping("/guias-campos")
+@RequestMapping("/api/guias-campos")
 public class GuiaCampoController {
 
     @Autowired

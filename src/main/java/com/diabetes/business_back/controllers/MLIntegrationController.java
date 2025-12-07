@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 @CrossOrigin(origins = "http://localhost:4200",
         allowCredentials = "true",
         exposedHeaders = "Authorization")
-@RequestMapping("/ml-integration")
+@RequestMapping("/api/ml-integration")
 public class MLIntegrationController {
     @Autowired
     private TipoDiabetesInfoRepository tipoDiabetesInfoRepository;
