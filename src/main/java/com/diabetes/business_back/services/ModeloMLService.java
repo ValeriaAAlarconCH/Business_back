@@ -18,6 +18,7 @@ public class ModeloMLService {
     private boolean mlPythonEnabled;
 
     private boolean apiDisponible = false;
+    private LocalDateTime ultimaVerificacion;
 
     public ModeloMLService(PythonMLClient pythonMLClient) {
         this.pythonMLClient = pythonMLClient;
@@ -37,62 +38,89 @@ public class ModeloMLService {
     private void verificarYConfigurarAPI() {
         try {
             apiDisponible = pythonMLClient.verificarConexion();
+            ultimaVerificacion = LocalDateTime.now();
 
             if (apiDisponible) {
                 log.info("✅ Servicio ML configurado para usar API Python");
-                probarPrediccionEjemplo();
+
+                // Probar con datos de ejemplo
+                try {
+                    MLPredictionResponseDto prueba = pythonMLClient.pruebaPrediccion();
+                    if (prueba != null && prueba.getSuccess() != null && prueba.getSuccess()) {
+                        log.info("✅ Prueba de predicción exitosa. Modelo funcionando correctamente");
+                    } else {
+                        log.warn("⚠️ Prueba de predicción falló o respuesta inválida");
+                    }
+                } catch (Exception e) {
+                    log.warn("⚠️ Prueba de predicción encontró errores: {}", e.getMessage());
+                }
+
             } else {
                 log.warn("⚠️ API Python no disponible. Usando modelo simulado.");
             }
         } catch (Exception e) {
             log.error("❌ Error configurando servicio ML: {}", e.getMessage());
             apiDisponible = false;
+            ultimaVerificacion = LocalDateTime.now();
         }
     }
 
-    private void probarPrediccionEjemplo() {
-        try {
-            log.info("🧪 Probando predicción de ejemplo...");
-            MLPredictionResponseDto resultado = pythonMLClient.pruebaPrediccion();
-
-            if (resultado != null) {
-                log.info("✅ Prueba exitosa. Predicción: {} ({:.1f}%)",
-                        resultado.getPredictedClass(),
-                        resultado.getProbability() * 100);
-            }
-        } catch (Exception e) {
-            log.warn("⚠️ Prueba de predicción falló: {}", e.getMessage());
-        }
-    }
-
+    /**
+     * Método principal para realizar predicciones - USADO por EvaluacionDiabetesService
+     */
     public MLPredictionResponseDto predecir(Map<String, Object> features) {
         try {
+            log.info("🎯 Iniciando predicción con {} características", features.size());
             validarCaracteristicas(features);
 
+            // Intentar usar API Python si está disponible
             if (mlPythonEnabled && apiDisponible) {
                 try {
                     log.info("🤖 Usando modelo real de Python para predicción");
-                    return pythonMLClient.predecirConPython(features);
+                    MLPredictionResponseDto resultado = pythonMLClient.predecirConPython(features);
+
+                    if (resultado != null && resultado.getSuccess() != null && resultado.getSuccess()) {
+                        return resultado;
+                    } else {
+                        log.warn("⚠️ Predicción de API Python falló, usando simulada");
+                        return prediccionSimulada(features);
+                    }
+
                 } catch (Exception e) {
-                    log.error("❌ Falló predicción con API Python: {}", e.getMessage());
-                    log.warn("🔄 Reintentando con modelo simulado...");
-                    apiDisponible = false; // Marcar como no disponible
+                    log.error("❌ Error con API Python: {}", e.getMessage());
+                    // Re-verificar conexión
+                    apiDisponible = pythonMLClient.verificarConexion();
+                    ultimaVerificacion = LocalDateTime.now();
+
+                    if (!apiDisponible) {
+                        log.warn("🔄 API Python no disponible, usando modelo simulado");
+                        return prediccionSimulada(features);
+                    } else {
+                        throw e; // Re-lanzar si API está disponible pero hay otro error
+                    }
                 }
             }
 
-            log.info("🔧 Usando modelo simulado (fallback)");
+            // Usar modelo simulado
+            log.info("🔧 Usando modelo simulado (fallback o deshabilitado)");
             return prediccionSimulada(features);
 
         } catch (IllegalArgumentException e) {
             log.error("❌ Error de validación: {}", e.getMessage());
             throw e;
         } catch (Exception e) {
-            log.error("❌ Error en predicción: {}", e.getMessage());
+            log.error("❌ Error en predicción: {}", e.getMessage(), e);
             return crearRespuestaError("Error en el servicio de predicción: " + e.getMessage());
         }
     }
 
+    /**
+     * Método sobrecargado para usar con DTO
+     */
     public MLPredictionResponseDto predecir(MLPredictionRequestDto request) {
+        if (request == null || request.getFeatures() == null) {
+            throw new IllegalArgumentException("Request o features no pueden ser nulos");
+        }
         return predecir(request.getFeatures());
     }
 
@@ -105,30 +133,38 @@ public class ModeloMLService {
                 "edad", "niveles_glucosa", "niveles_insulina"
         );
 
+        List<String> faltantes = new ArrayList<>();
         for (String feature : requiredFeatures) {
             if (!features.containsKey(feature) || features.get(feature) == null) {
-                throw new IllegalArgumentException("Falta la característica obligatoria: " + feature);
+                faltantes.add(feature);
             }
         }
 
+        if (!faltantes.isEmpty()) {
+            throw new IllegalArgumentException("Faltan características obligatorias: " + String.join(", ", faltantes));
+        }
+
+        // Validar tipos y rangos
         try {
             Integer edad = convertirAEntero(features.get("edad"));
             if (edad < 0 || edad > 120) {
-                throw new IllegalArgumentException("Edad inválida. Debe estar entre 0 y 120");
+                throw new IllegalArgumentException("Edad inválida. Debe estar entre 0 y 120 años");
             }
 
             Double glucosa = convertirADouble(features.get("niveles_glucosa"));
             if (glucosa < 0 || glucosa > 1000) {
-                throw new IllegalArgumentException("Niveles de glucosa inválidos");
+                throw new IllegalArgumentException("Niveles de glucosa inválidos. Rango: 0-1000 mg/dL");
             }
 
             Double insulina = convertirADouble(features.get("niveles_insulina"));
             if (insulina < 0 || insulina > 500) {
-                throw new IllegalArgumentException("Niveles de insulina inválidos");
+                throw new IllegalArgumentException("Niveles de insulina inválidos. Rango: 0-500 μU/mL");
             }
 
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Formato numérico inválido en características");
+        } catch (ClassCastException e) {
+            throw new IllegalArgumentException("Tipo de dato inválido en características");
         }
     }
 
@@ -147,47 +183,52 @@ public class ModeloMLService {
             Map<String, Double> probabilities = generarProbabilidadesSimuladas(predictedClass);
             Map<String, Double> featureImportance = generarImportanciaSimulada(features);
 
-            return new MLPredictionResponseDto(
-                    predictedClass,
-                    probability,
-                    probabilities,
-                    featureImportance
-            );
+            MLPredictionResponseDto response = new MLPredictionResponseDto();
+            response.setPredictedClass(predictedClass);
+            response.setProbability(probability);
+            response.setProbabilities(probabilities);
+            response.setFeatureImportance(featureImportance);
+            response.setSuccess(true);
+            response.setMessage("Predicción usando modelo simulado (API Python no disponible)");
+
+            log.info("✅ Predicción simulada generada: {} ({:.1f}%)",
+                    predictedClass, probability * 100);
+
+            return response;
 
         } catch (Exception e) {
             log.error("Error en predicción simulada: {}", e.getMessage());
-            return crearRespuestaError("Error en predicción simulada");
+            return crearRespuestaError("Error en predicción simulada: " + e.getMessage());
         }
     }
 
     private String determinarClaseSimulada(Integer edad, Double glucosa, Double insulina, String autoanticuerpos) {
         Random rand = new Random();
 
-        // Lógica de simulación más simple y realista
-        if (glucosa > 200) {
+        // Lógica de simulación más realista
+        if (glucosa > 200 || ("Positive".equals(autoanticuerpos) && edad < 30)) {
             return "Type 1 Diabetes";
         } else if (glucosa > 126 && insulina > 30) {
             return "Type 2 Diabetes";
         } else if (glucosa >= 100 && glucosa <= 125) {
             return "Prediabetic";
-        } else if ("Positive".equals(autoanticuerpos) && edad < 30) {
-            return "Type 1 Diabetes";
-        } else if (edad != null && edad < 25 && glucosa > 130 && glucosa < 200) {
+        } else if (edad != null && edad < 25 && glucosa > 130) {
             return "MODY";
         } else {
-            // Distribución basada en prevalencia
+            // Distribución basada en prevalencia real
             double random = rand.nextDouble();
-            if (random < 0.50) return "Type 2 Diabetes";
-            else if (random < 0.65) return "Prediabetic";
-            else if (random < 0.75) return "Type 1 Diabetes";
-            else if (random < 0.80) return "Gestational Diabetes";
-            else if (random < 0.85) return "LADA";
-            else if (random < 0.88) return "MODY";
-            else if (random < 0.91) return "Steroid-Induced Diabetes";
-            else if (random < 0.94) return "Secondary Diabetes";
-            else if (random < 0.96) return "Type 3c Diabetes (Pancreatogenic Diabetes)";
-            else if (random < 0.98) return "Cystic Fibrosis-Related Diabetes (CFRD)";
-            else return "Wolfram Syndrome";
+            if (random < 0.50) return "Type 2 Diabetes";        // 50% más común
+            else if (random < 0.65) return "Prediabetic";        // 15%
+            else if (random < 0.75) return "Type 1 Diabetes";    // 10%
+            else if (random < 0.80) return "Gestational Diabetes"; // 5%
+            else if (random < 0.85) return "LADA";               // 5%
+            else if (random < 0.88) return "MODY";               // 3%
+            else if (random < 0.91) return "Steroid-Induced Diabetes"; // 3%
+            else if (random < 0.94) return "Secondary Diabetes"; // 3%
+            else if (random < 0.96) return "Type 3c Diabetes (Pancreatogenic Diabetes)"; // 2%
+            else if (random < 0.98) return "Cystic Fibrosis-Related Diabetes (CFRD)"; // 2%
+            else if (random < 0.99) return "Wolfram Syndrome";   // 1%
+            else return "Wolcott-Rallison Syndrome";             // 1%
         }
     }
 
@@ -214,13 +255,15 @@ public class ModeloMLService {
             if (clase.equals(predictedClass)) {
                 probabilities.put(clase, 0.75 + (rand.nextDouble() * 0.20));
             } else {
-                probabilities.put(clase, rand.nextDouble() * 0.20);
+                probabilities.put(clase, rand.nextDouble() * 0.10);
             }
         }
 
-        // Normalizar
+        // Normalizar a que sumen 1
         double total = probabilities.values().stream().mapToDouble(Double::doubleValue).sum();
-        probabilities.replaceAll((k, v) -> v / total);
+        if (total > 0) {
+            probabilities.replaceAll((k, v) -> v / total);
+        }
 
         return probabilities;
     }
@@ -229,9 +272,18 @@ public class ModeloMLService {
         Map<String, Double> importance = new HashMap<>();
         Random rand = new Random();
 
-        importance.put("niveles_glucosa", 0.8 + (rand.nextDouble() * 0.15));
-        importance.put("niveles_insulina", 0.6 + (rand.nextDouble() * 0.25));
-        importance.put("edad", 0.5 + (rand.nextDouble() * 0.3));
+        // Importancia basada en características reales
+        if (features.containsKey("niveles_glucosa")) {
+            importance.put("niveles_glucosa", 0.8 + (rand.nextDouble() * 0.15));
+        }
+
+        if (features.containsKey("niveles_insulina")) {
+            importance.put("niveles_insulina", 0.6 + (rand.nextDouble() * 0.25));
+        }
+
+        if (features.containsKey("edad")) {
+            importance.put("edad", 0.5 + (rand.nextDouble() * 0.3));
+        }
 
         if (features.containsKey("autoanticuerpos")) {
             importance.put("autoanticuerpos", 0.7 + (rand.nextDouble() * 0.2));
@@ -239,6 +291,15 @@ public class ModeloMLService {
 
         if (features.containsKey("antecedentes_familiares")) {
             importance.put("antecedentes_familiares", 0.6 + (rand.nextDouble() * 0.25));
+        }
+
+        // Agregar algunas características más
+        if (features.containsKey("indice_masa_corporal")) {
+            importance.put("indice_masa_corporal", 0.4 + (rand.nextDouble() * 0.3));
+        }
+
+        if (features.containsKey("presion_arterial")) {
+            importance.put("presion_arterial", 0.3 + (rand.nextDouble() * 0.2));
         }
 
         return importance;
@@ -250,6 +311,8 @@ public class ModeloMLService {
         dto.setProbability(0.0);
         dto.setProbabilities(new HashMap<>());
         dto.setFeatureImportance(new HashMap<>());
+        dto.setSuccess(false);
+        dto.setMessage(mensaje);
         return dto;
     }
 
@@ -280,15 +343,36 @@ public class ModeloMLService {
     }
 
     public boolean isAPIDisponible() {
+        // Re-verificar cada 5 minutos si no está disponible
+        if (!apiDisponible && (ultimaVerificacion == null ||
+                ultimaVerificacion.plusMinutes(5).isBefore(LocalDateTime.now()))) {
+            apiDisponible = pythonMLClient.verificarConexion();
+            ultimaVerificacion = LocalDateTime.now();
+        }
         return apiDisponible;
     }
 
-    public Map<String, Object> getEstadoServicio() {
-        Map<String, Object> estado = new HashMap<>();
-        estado.put("apiPythonHabilitada", mlPythonEnabled);
-        estado.put("apiDisponible", apiDisponible);
-        estado.put("ultimaVerificacion", LocalDateTime.now());
-        estado.put("servicioActivo", true);
-        return estado;
+    public Map<String, Object> getInfoModelo() {
+        Map<String, Object> info = new HashMap<>();
+
+        try {
+            if (mlPythonEnabled && apiDisponible) {
+                info = pythonMLClient.obtenerInfoModelo();
+                info.put("origen", "API Python");
+            } else {
+                info.put("origen", "Modelo Simulado");
+                info.put("modo", mlPythonEnabled ? "API no disponible" : "Deshabilitado");
+            }
+
+            info.put("pythonEnabled", mlPythonEnabled);
+            info.put("apiDisponible", apiDisponible);
+            info.put("ultimaVerificacion", ultimaVerificacion);
+
+        } catch (Exception e) {
+            log.error("Error obteniendo info del modelo: {}", e.getMessage());
+            info.put("error", e.getMessage());
+        }
+
+        return info;
     }
 }

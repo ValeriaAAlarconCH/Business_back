@@ -1,16 +1,10 @@
 package com.diabetes.business_back.dtos;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.Data;
 
 import java.io.Serializable;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
+@Data
 public class TipoDiabetesInfoDto implements Serializable {
     private Long idTipoDiabetes;
     private String nombreEn;
